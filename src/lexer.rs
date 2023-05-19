@@ -87,10 +87,9 @@ pub enum TokenKind {
 pub enum Lexeme<T> {
     Number(T),
     Ident(String),
-    Other(TokenKind),
-    Empty,
-    EOL,
+    Particle(TokenKind),
     EOF,
+    None,
 }
 
 #[derive(Debug)]
@@ -107,14 +106,14 @@ impl<T> Token<T> {
 
 pub struct Lexer {
     current_code: &'static str,
-    pos: Pos,
+    last_pos: Pos,
 }
 
 impl Lexer {
     pub fn new(code: &'static str) -> Self {
         Self {
             current_code: code,
-            pos: Pos::new(0, 0),
+            last_pos: Pos::new(0, 0),
         }
     }
 
@@ -127,41 +126,41 @@ impl Lexer {
             let fragment = &self.current_code[lex_offs.start..lex_offs.end];
             self.current_code = &self.current_code[lex_offs.end..];
 
-            let col = lex_offs.start + self.pos.col;
-            let mut next_pos = Pos::new(self.pos.row, col);
+            let col = lex_offs.start + self.last_pos.col;
+            let mut next_pos = Pos::new(self.last_pos.row, col);
 
             if let Ok(lexeme) = lexeme {
                 match lexeme {
                     TokenKind::Comment => {
-                        let token = Token::new(Lexeme::Empty, next_pos.clone());
+                        let token = Token::new(Lexeme::None, next_pos.clone());
                         next_pos.col += lex_offs.end - lex_offs.start;
-                        self.pos = next_pos;
+                        self.last_pos = next_pos;
                         Ok(token)
                     }
                     TokenKind::EOL => {
-                        let token = Token::new(Lexeme::EOL, next_pos.clone());
+                        let token = Token::new(Lexeme::None, next_pos.clone());
                         next_pos.row += 1;
                         next_pos.col = 0;
-                        self.pos = next_pos;
+                        self.last_pos = next_pos;
                         Ok(token)
                     }
                     TokenKind::Int | TokenKind::Float => {
                         let n = str::parse::<T>(fragment).unwrap();
                         let token = Token::new(Lexeme::Number(n), next_pos.clone());
                         next_pos.col += lex_offs.end - lex_offs.start;
-                        self.pos = next_pos;
+                        self.last_pos = next_pos;
                         Ok(token)
                     }
                     TokenKind::Ident => {
                         let token = Token::new(Lexeme::Ident(fragment.into()), next_pos.clone());
                         next_pos.col += lex_offs.end - lex_offs.start;
-                        self.pos = next_pos;
+                        self.last_pos = next_pos;
                         Ok(token)
                     }
                     _ => {
-                        let token = Token::new(Lexeme::Other(lexeme), next_pos.clone());
+                        let token = Token::new(Lexeme::Particle(lexeme), next_pos.clone());
                         next_pos.col += lex_offs.end - lex_offs.start;
-                        self.pos = next_pos;
+                        self.last_pos = next_pos;
                         Ok(token)
                     }
                 }
@@ -173,7 +172,7 @@ impl Lexer {
             }
         } else {
             // EOF
-            let token = Token::new(Lexeme::EOF, self.pos.clone());
+            let token = Token::new(Lexeme::EOF, self.last_pos.clone());
             Ok(token)
         }
     }

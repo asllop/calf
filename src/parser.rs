@@ -10,8 +10,8 @@ use core::{fmt::Debug, str::FromStr};
 
 #[derive(Debug)]
 /// Syntactic unit.
-pub enum SynUnit<T> {
-    Literal(T),
+pub enum Syntagma<T> {
+    Number(T),
     Identifier(String),
     List(Vec<T>),
     Group {
@@ -45,16 +45,13 @@ pub enum SynUnit<T> {
 #[derive(Debug)]
 /// Expression.
 pub struct Expr<T> {
-    pub syn_unit: SynUnit<T>,
+    pub syn: Syntagma<T>,
     pub pos: Pos,
 }
 
 impl<T> Expr<T> {
-    pub fn new(unit: SynUnit<T>, pos: Pos) -> Self {
-        Self {
-            syn_unit: unit,
-            pos,
-        }
+    pub fn new(unit: Syntagma<T>, pos: Pos) -> Self {
+        Self { syn: unit, pos }
     }
 }
 
@@ -123,11 +120,11 @@ where
         let mut expr = self.primary()?;
         while self.is_token(Plus, 0) || self.is_token(Minus, 0) {
             let op = self.token().unwrap();
-            if let Lexeme::Other(op) = op.lexeme {
+            if let Lexeme::Particle(op) = op.lexeme {
                 let right = self.primary()?;
                 let pos = expr.pos.clone();
                 expr = Expr::new(
-                    SynUnit::BinaryOp {
+                    Syntagma::BinaryOp {
                         op,
                         left_child: Box::new(expr),
                         right_child: Box::new(right),
@@ -148,7 +145,7 @@ where
         if self.is_token(Int, 0) || self.is_token(Float, 0) {
             let token = self.token().unwrap();
             if let Lexeme::Number(n) = token.lexeme {
-                let expr = Expr::new(SynUnit::Literal(n), token.pos);
+                let expr = Expr::new(Syntagma::Number(n), token.pos);
                 return Ok(expr);
             } else {
                 return Err(CalfErr {
@@ -160,7 +157,7 @@ where
         if self.is_token(Ident, 0) {
             let token = self.token().unwrap();
             if let Lexeme::Ident(id) = token.lexeme {
-                let expr = Expr::new(SynUnit::Identifier(id), token.pos);
+                let expr = Expr::new(Syntagma::Identifier(id), token.pos);
                 return Ok(expr);
             } else {
                 return Err(CalfErr {
@@ -182,26 +179,17 @@ where
             }
             let pos = expr.pos.clone();
             let expr = Expr::new(
-                SynUnit::Group {
+                Syntagma::Group {
                     expr: Box::new(expr),
                 },
                 pos,
             );
             return Ok(expr);
         }
-        if self.is_token(EOL, 0) {
-            self.token();
-            Ok(Expr::new(SynUnit::Empty, Default::default()))
-        } else {
-            if self.is_end() {
-                Ok(Expr::new(SynUnit::Empty, Default::default()))
-            } else {
-                Err(CalfErr {
-                    message: "Couldn't parse a valid expression".into(),
-                    pos: self.tokens[0].pos.clone(),
-                })
-            }
-        }
+        Err(CalfErr {
+            message: "Couldn't parse a valid expression".into(),
+            pos: self.tokens[0].pos.clone(),
+        })
     }
 
     fn is_token(&mut self, ttype: TokenKind, offset: usize) -> bool {
@@ -210,11 +198,13 @@ where
             let missing = offset - self.tokens.len() + 1;
             for _ in 0..missing {
                 if let Ok(token) = self.lexer.scan_token() {
-                    if let Lexeme::EOF | Lexeme::EOL | Lexeme::Empty = token.lexeme {
-                        return false;
+                    // Skip this lexeme, not a parseable one
+                    if let Lexeme::EOF | Lexeme::None = token.lexeme {
+                        continue;
                     }
                     self.tokens.push_back(token);
                 } else {
+                    // Failed scanning token
                     return false;
                 }
             }
@@ -224,8 +214,7 @@ where
             match token.lexeme {
                 Lexeme::Number(_) => ttype == TokenKind::Int || ttype == TokenKind::Float,
                 Lexeme::Ident(_) => ttype == TokenKind::Ident,
-                Lexeme::Other(tt) => ttype == tt,
-                Lexeme::EOL => ttype == TokenKind::EOL,
+                Lexeme::Particle(tt) => ttype == tt,
                 _ => false,
             }
         } else {

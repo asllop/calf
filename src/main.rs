@@ -1,5 +1,7 @@
-use calf::lexer::{Lexeme, Lexer};
-use calf::parser::{Parser, Stmt, SynUnit};
+use calf::{
+    lexer::{Lexer, Lexeme},
+    parser::{Parser, Stmt, Syntagma},
+};
 use std::process::exit;
 
 fn main() {
@@ -18,9 +20,9 @@ fn main() {
         nums = nums * [0;5;2]
         nums = nums[0..1] # 3 # [5,8]
     "#;
-    
+
     let _code_2 = r#"
-        10
+        10   5 + var
         num
         10 + // his is a comment ¿
             num
@@ -28,6 +30,7 @@ fn main() {
             (
                 12 + 67 - num
             )
+        (var + num) - 7
     "#;
 
     let code = _code_2;
@@ -39,7 +42,7 @@ fn main() {
         match lexer.scan_token::<f64>() {
             Ok(token) => match token.lexeme {
                 Lexeme::EOF => break,
-                _ => tokens.push(token)
+                _ => tokens.push(token),
             },
             Err(err) => {
                 println!("Error = {:?}", err);
@@ -59,14 +62,13 @@ fn main() {
         match parser.scan_stmt() {
             Ok(stmt) => {
                 if let Stmt::Expr(e) = &stmt {
-                    if let SynUnit::Empty = e.syn_unit {
+                    if let Syntagma::Empty = e.syn {
                         println!("------> Empty expression at {:?}", e.pos);
-                    }
-                    else {
+                        break;
+                    } else {
                         println!("{:?}\n", stmt);
                     }
-                }
-                else {
+                } else {
                     println!("{:?}\n", stmt);
                 }
             }
