@@ -1,8 +1,5 @@
 use crate::{
-    lexer::{
-        Lexeme, Lexer, Token,
-        TokenKind::{self, *},
-    },
+    lexer::{Lexeme, Lexer, Token, TokenKind},
     CalfErr, Pos,
 };
 use alloc::{boxed::Box, collections::VecDeque, string::String, vec::Vec};
@@ -85,7 +82,7 @@ where
     }
 
     fn statement(&mut self) -> Result<Stmt<T>, CalfErr> {
-        if self.is_token(Ident, 0) && self.is_token(Assign, 1) {
+        if self.is_token(TokenKind::Ident, 0) && self.is_token(TokenKind::Assign, 1) {
             self.assign_statement()
         } else {
             // Otherwise, expression statement
@@ -118,7 +115,7 @@ where
 
     fn term(&mut self) -> Result<Expr<T>, CalfErr> {
         let mut expr = self.primary()?;
-        while self.is_token(Plus, 0) || self.is_token(Minus, 0) {
+        while self.is_token(TokenKind::Plus, 0) || self.is_token(TokenKind::Minus, 0) {
             let op = self.token().unwrap();
             if let Lexeme::Particle(op) = op.lexeme {
                 let right = self.primary()?;
@@ -142,7 +139,7 @@ where
     }
 
     fn primary(&mut self) -> Result<Expr<T>, CalfErr> {
-        if self.is_token(Int, 0) || self.is_token(Float, 0) {
+        if self.is_token(TokenKind::Int, 0) || self.is_token(TokenKind::Float, 0) {
             let token = self.token().unwrap();
             if let Lexeme::Number(n) = token.lexeme {
                 let expr = Expr::new(Syntagma::Number(n), token.pos);
@@ -154,7 +151,7 @@ where
                 });
             }
         }
-        if self.is_token(Ident, 0) {
+        if self.is_token(TokenKind::Ident, 0) {
             let token = self.token().unwrap();
             if let Lexeme::Ident(id) = token.lexeme {
                 let expr = Expr::new(Syntagma::Identifier(id), token.pos);
@@ -166,10 +163,10 @@ where
                 });
             }
         }
-        if self.is_token(OpenParenth, 0) {
+        if self.is_token(TokenKind::OpenParenth, 0) {
             self.token(); // consume "("
             let expr = self.expression()?;
-            if self.is_token(ClosingParenth, 0) {
+            if self.is_token(TokenKind::ClosingParenth, 0) {
                 self.token(); // consume ")"
             } else {
                 return Err(CalfErr {
@@ -237,8 +234,23 @@ pub struct Ast<T> {
     pub statements: Vec<Stmt<T>>,
 }
 
-impl<T> Ast<T> {
-    pub fn new(statements: Vec<Stmt<T>>) -> Self {
-        Self { statements }
+impl<T> Ast<T>
+where
+    T: FromStr + Debug + PartialEq,
+    <T as FromStr>::Err: Debug,
+{
+    pub fn build(code: &'static str) -> Result<Self, CalfErr> {
+        let mut ast = Self {
+            statements: Default::default(),
+        };
+        let mut parser = Parser::new(code);
+        loop {
+            let stmt = parser.scan_stmt()?;
+            ast.statements.push(stmt);
+            if parser.is_end() {
+                break;
+            }
+        }
+        Ok(ast)
     }
 }
