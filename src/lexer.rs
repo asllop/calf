@@ -1,10 +1,15 @@
+use alloc::{string::String, vec::Vec};
+use core::{fmt::Debug, str::FromStr};
 use logos::Logos;
-
 
 #[derive(Logos, Debug, PartialEq, Copy, Clone)]
 #[logos(skip r"[ \t]+")]
 /// Token types.
 pub enum TokenKind {
+    // Comment
+    #[regex("//.*")]
+    Comment,
+
     // End Of Line
     #[token("\n")]
     EOL,
@@ -20,6 +25,8 @@ pub enum TokenKind {
     Question,
     #[token(":")]
     Colon,
+    #[token(";")]
+    Semicolon,
     #[token("+")]
     Plus,
     #[token("-")]
@@ -63,10 +70,6 @@ pub enum TokenKind {
     #[token("#")]
     Sharp,
 
-    // Comment
-    #[token("//")]
-    Comment,
-
     // Literals
     #[regex("-?[0-9]+")]
     Int,
@@ -79,16 +82,24 @@ pub enum TokenKind {
     Ident,
 }
 
+#[derive(Debug)]
 pub enum Lexeme<T> {
     Number(T),
     Ident(String),
     Other(TokenKind),
 }
 
+#[derive(Debug)]
 pub struct Token<T> {
     pub lexeme: Lexeme<T>,
     pub row: usize,
     pub col: usize,
+}
+
+impl<T> Token<T> {
+    pub fn new(lexeme: Lexeme<T>, row: usize, col: usize) -> Self {
+        Self { lexeme, row, col }
+    }
 }
 
 #[derive(Debug)]
@@ -96,28 +107,49 @@ pub struct Token<T> {
 pub struct LexError {
     /// Error message.
     pub message: String,
+    /// Line where the error was found.
+    pub row: usize,
     /// Position in the line where the error was found.
-    pub position: usize,
+    pub col: usize,
 }
 
-pub fn scan(code: &str) -> Result<(), LexError> {
+pub fn scan<T>(code: &str) -> Result<Vec<Token<T>>, LexError>
+where
+    T: FromStr + Debug,
+    <T as FromStr>::Err: Debug,
+{
+    let mut tokens = vec![];
+    let mut row = 0;
+    let mut offset = 0;
+    let mut col;
+
     for (lexeme, pos) in TokenKind::lexer(code).spanned() {
         let fragment = &code[pos.start..pos.end];
-        let lex_pos = pos.start;
+        col = pos.start - offset;
+
         if let Ok(lexeme) = lexeme {
-            if let TokenKind::Ident | TokenKind::Int | TokenKind::Float = lexeme {
-                println!("{:?}({})", lexeme, fragment);
+            match lexeme {
+                TokenKind::Comment => {}
+                TokenKind::EOL => {
+                    row += 1;
+                    offset = pos.end;
+                }
+                TokenKind::Int | TokenKind::Float => {
+                    let n = str::parse::<T>(fragment).unwrap();
+                    tokens.push(Token::new(Lexeme::Number(n), row, col))
+                }
+                TokenKind::Ident => {
+                    tokens.push(Token::new(Lexeme::Ident(fragment.into()), row, col))
+                }
+                _ => tokens.push(Token::new(Lexeme::Other(lexeme), row, col)),
             }
-            else {
-                println!("{:?}", lexeme);
-            }
-        }
-        else {
+        } else {
             return Err(LexError {
                 message: format!("Unrecognized lexeme: '{}'", fragment),
-                position: lex_pos,
+                row,
+                col,
             });
         }
     }
-    Ok(())
+    Ok(tokens)
 }
