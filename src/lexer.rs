@@ -1,3 +1,4 @@
+use crate::{CalfErr, Pos};
 use alloc::string::String;
 use core::{fmt::Debug, str::FromStr};
 use logos::Logos;
@@ -56,7 +57,7 @@ pub enum TokenKind {
     #[token("!")]
     Not,
     #[token("==")]
-    Equal,
+    TwoEquals,
     #[token("!=")]
     NotEqual,
     #[token("=")]
@@ -82,7 +83,7 @@ pub enum TokenKind {
     Ident,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Lexeme<T> {
     Number(T),
     Ident(String),
@@ -104,82 +105,76 @@ impl<T> Token<T> {
     }
 }
 
-#[derive(Debug)]
-/// Lexical analysis error.
-pub struct LexError {
-    /// Error message.
-    pub message: String,
-    /// Line where the error was found.
-    pub row: usize,
-    /// Position in the line where the error was found.
-    pub col: usize,
+pub struct Lexer {
+    current_code: &'static str,
+    pos: Pos,
 }
 
-#[derive(Debug, Clone)]
-pub struct Pos {
-    pub row: usize,
-    pub col: usize,
-}
-
-impl Pos {
-    pub fn new(row: usize, col: usize) -> Self {
-        Self { row, col }
+impl Lexer {
+    pub fn new(code: &'static str) -> Self {
+        Self {
+            current_code: code,
+            pos: Pos::new(0, 0),
+        }
     }
-}
 
-pub fn scan_token<T>(code: &str, prev_pos: Pos) -> Result<(Token<T>, &str, Pos), LexError>
-where
-    T: FromStr + Debug,
-    <T as FromStr>::Err: Debug,
-{
-    if let Some((lexeme, lex_offs)) = TokenKind::lexer(code).spanned().next() {
-        let fragment = &code[lex_offs.start..lex_offs.end];
-        let code_rest = &code[lex_offs.end..];
+    pub fn scan_token<T>(&mut self) -> Result<Token<T>, CalfErr>
+    where
+        T: FromStr + Debug + PartialEq,
+        <T as FromStr>::Err: Debug,
+    {
+        if let Some((lexeme, lex_offs)) = TokenKind::lexer(self.current_code).spanned().next() {
+            let fragment = &self.current_code[lex_offs.start..lex_offs.end];
+            self.current_code = &self.current_code[lex_offs.end..];
 
-        let col = lex_offs.start + prev_pos.col;
-        let mut next_pos = Pos::new(prev_pos.row, col);
+            let col = lex_offs.start + self.pos.col;
+            let mut next_pos = Pos::new(self.pos.row, col);
 
-        if let Ok(lexeme) = lexeme {
-            
-            match lexeme {
-                TokenKind::Comment => {
-                    let token = Token::new(Lexeme::Empty, next_pos.clone());
-                    next_pos.col += lex_offs.end - lex_offs.start;
-                    Ok((token, code_rest, next_pos))
+            if let Ok(lexeme) = lexeme {
+                match lexeme {
+                    TokenKind::Comment => {
+                        let token = Token::new(Lexeme::Empty, next_pos.clone());
+                        next_pos.col += lex_offs.end - lex_offs.start;
+                        self.pos = next_pos;
+                        Ok(token)
+                    }
+                    TokenKind::EOL => {
+                        let token = Token::new(Lexeme::EOL, next_pos.clone());
+                        next_pos.row += 1;
+                        next_pos.col = 0;
+                        self.pos = next_pos;
+                        Ok(token)
+                    }
+                    TokenKind::Int | TokenKind::Float => {
+                        let n = str::parse::<T>(fragment).unwrap();
+                        let token = Token::new(Lexeme::Number(n), next_pos.clone());
+                        next_pos.col += lex_offs.end - lex_offs.start;
+                        self.pos = next_pos;
+                        Ok(token)
+                    }
+                    TokenKind::Ident => {
+                        let token = Token::new(Lexeme::Ident(fragment.into()), next_pos.clone());
+                        next_pos.col += lex_offs.end - lex_offs.start;
+                        self.pos = next_pos;
+                        Ok(token)
+                    }
+                    _ => {
+                        let token = Token::new(Lexeme::Other(lexeme), next_pos.clone());
+                        next_pos.col += lex_offs.end - lex_offs.start;
+                        self.pos = next_pos;
+                        Ok(token)
+                    }
                 }
-                TokenKind::EOL => {
-                    let token = Token::new(Lexeme::EOL, next_pos.clone());
-                    next_pos.row += 1;
-                    next_pos.col = 0;
-                    Ok((token, code_rest, next_pos))
-                }
-                TokenKind::Int | TokenKind::Float => {
-                    let n = str::parse::<T>(fragment).unwrap();
-                    let token = Token::new(Lexeme::Number(n), next_pos.clone());
-                    next_pos.col += lex_offs.end - lex_offs.start;
-                    Ok((token, code_rest, next_pos))
-                }
-                TokenKind::Ident => {
-                    let token = Token::new(Lexeme::Ident(fragment.into()), next_pos.clone());
-                    next_pos.col += lex_offs.end - lex_offs.start;
-                    Ok((token, code_rest, next_pos))
-                }
-                _ => {
-                    let token = Token::new(Lexeme::Other(lexeme), next_pos.clone());
-                    next_pos.col += lex_offs.end - lex_offs.start;
-                    Ok((token, code_rest, next_pos))
-                }
+            } else {
+                return Err(CalfErr {
+                    message: format!("Unrecognized lexeme: '{}'", fragment),
+                    pos: next_pos,
+                });
             }
         } else {
-            return Err(LexError {
-                message: format!("Unrecognized lexeme: '{}'", fragment),
-                row: next_pos.row,
-                col: next_pos.col,
-            });
+            // EOF
+            let token = Token::new(Lexeme::EOF, self.pos.clone());
+            Ok(token)
         }
-    } else {
-        // EOF
-        let token = Token::new(Lexeme::EOF, prev_pos.clone());
-        Ok((token, "", prev_pos))
     }
 }
