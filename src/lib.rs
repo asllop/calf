@@ -11,6 +11,10 @@ pub mod lexer;
 /// Syntax analyzer.
 pub mod parser;
 
+// Reexport AST module.
+mod ast;
+pub use ast::*;
+
 #[derive(Debug)]
 /// Compiler error.
 pub struct CalfErr {
@@ -21,6 +25,7 @@ pub struct CalfErr {
 }
 
 #[derive(Debug, Default, Clone)]
+/// Position of language element in the code.
 pub struct Pos {
     pub row: usize,
     pub col: usize,

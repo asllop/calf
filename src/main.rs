@@ -1,4 +1,4 @@
-use calf::parser::Ast;
+use calf;
 
 fn main() {
     println!("CALF\n");
@@ -88,7 +88,7 @@ fn main() {
     //     }
     // }
 
-    let ast = Ast::<f64>::build(code).unwrap();
+    let ast = calf::Ast::<f64>::build(code).unwrap();
     for stmt in ast.statements {
         println!("{:?}\n", stmt);
     }
