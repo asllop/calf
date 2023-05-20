@@ -81,7 +81,7 @@ where
     }
 
     fn statement(&mut self) -> Result<Stmt<T>, CalfErr> {
-        if self.is_token(TokenKind::Ident, 0) && self.is_token(TokenKind::Assign, 1) {
+        if self.is_token(TokenKind::Ident, 0)? && self.is_token(TokenKind::Assign, 1)? {
             self.assign_statement()
         } else {
             // Otherwise, expression statement
@@ -116,7 +116,7 @@ where
 
     fn term(&mut self) -> Result<Expr<T>, CalfErr> {
         let mut expr = self.primary()?;
-        while self.is_token(TokenKind::Plus, 0) || self.is_token(TokenKind::Minus, 0) {
+        while self.is_token(TokenKind::Plus, 0)? || self.is_token(TokenKind::Minus, 0)? {
             let op = self.token().unwrap();
             if let Lexeme::Particle(op) = op.lexeme {
                 let right = self.primary()?;
@@ -140,7 +140,7 @@ where
     }
 
     fn primary(&mut self) -> Result<Expr<T>, CalfErr> {
-        if self.is_token(TokenKind::Int, 0) || self.is_token(TokenKind::Float, 0) {
+        if self.is_token(TokenKind::Int, 0)? || self.is_token(TokenKind::Float, 0)? {
             let token = self.token().unwrap();
             if let Lexeme::Number(n) = token.lexeme {
                 let expr = Expr::new(Syntagma::Number(n), token.pos);
@@ -152,7 +152,7 @@ where
                 });
             }
         }
-        if self.is_token(TokenKind::Ident, 0) {
+        if self.is_token(TokenKind::Ident, 0)? {
             let token = self.token().unwrap();
             if let Lexeme::Ident(id) = token.lexeme {
                 let expr = Expr::new(Syntagma::Identifier(id), token.pos);
@@ -164,10 +164,10 @@ where
                 });
             }
         }
-        if self.is_token(TokenKind::OpenParenth, 0) {
+        if self.is_token(TokenKind::OpenParenth, 0)? {
             self.token(); // consume "("
             let expr = self.expression()?;
-            if self.is_token(TokenKind::ClosingParenth, 0) {
+            if self.is_token(TokenKind::ClosingParenth, 0)? {
                 self.token(); // consume ")"
             } else {
                 return Err(CalfErr {
@@ -191,33 +191,29 @@ where
         })
     }
 
-    fn is_token(&mut self, ttype: TokenKind, offset: usize) -> bool {
+    fn is_token(&mut self, ttype: TokenKind, offset: usize) -> Result<bool, CalfErr> {
         // Get missing tokens from Lexer
         if offset >= self.tokens.len() {
             let missing = offset - self.tokens.len() + 1;
             for _ in 0..missing {
-                if let Ok(token) = self.lexer.scan_token() {
-                    // Skip this lexeme, not a parseable one
-                    if let Lexeme::EOF | Lexeme::None = token.lexeme {
-                        continue;
-                    }
-                    self.tokens.push_back(token);
-                } else {
-                    // Failed scanning token
-                    return false;
+                let token = self.lexer.scan_token()?;
+                // Skip this lexeme, not a parseable one
+                if let Lexeme::EOF | Lexeme::None = token.lexeme {
+                    continue;
                 }
+                self.tokens.push_back(token);
             }
         }
         // Check if token exist at the specified offset
         if let Some(token) = self.tokens.get(offset) {
-            match token.lexeme {
+            Ok(match token.lexeme {
                 Lexeme::Number(_) => ttype == TokenKind::Int || ttype == TokenKind::Float,
                 Lexeme::Ident(_) => ttype == TokenKind::Ident,
                 Lexeme::Particle(tt) => ttype == tt,
                 _ => false,
-            }
+            })
         } else {
-            false
+            Ok(false)
         }
     }
 

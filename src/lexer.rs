@@ -148,13 +148,18 @@ impl Lexer {
                         self.last_pos = next_pos;
                         Ok(token)
                     }
-                    TokenKind::Int | TokenKind::Float => {
-                        let n = str::parse::<T>(fragment).unwrap();
-                        let token = Token::new(Lexeme::Number(n), next_pos.clone());
-                        next_pos.col += lex_offs.end - lex_offs.start;
-                        self.last_pos = next_pos;
-                        Ok(token)
-                    }
+                    TokenKind::Int | TokenKind::Float => match str::parse::<T>(fragment) {
+                        Ok(n) => {
+                            let token = Token::new(Lexeme::Number(n), next_pos.clone());
+                            next_pos.col += lex_offs.end - lex_offs.start;
+                            self.last_pos = next_pos;
+                            Ok(token)
+                        }
+                        Err(err) => Err(CalfErr {
+                            message: format!("{:?}", err),
+                            pos: next_pos,
+                        }),
+                    },
                     TokenKind::Ident => {
                         let token = Token::new(Lexeme::Ident(fragment.into()), next_pos.clone());
                         next_pos.col += lex_offs.end - lex_offs.start;
