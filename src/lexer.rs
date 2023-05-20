@@ -1,4 +1,4 @@
-use crate::{CalfErr, Pos};
+use crate::common::{CalfErr, Pos};
 use alloc::string::String;
 use core::{fmt::Debug, str::FromStr};
 use logos::Logos;
@@ -115,6 +115,10 @@ impl Lexer {
             current_code: code,
             last_pos: Pos::new(0, 0),
         }
+    }
+
+    pub fn pos(&self) -> Pos {
+        self.last_pos.clone()
     }
 
     pub fn scan_token<T>(&mut self) -> Result<Token<T>, CalfErr>

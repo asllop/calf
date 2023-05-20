@@ -1,6 +1,6 @@
 use crate::{
+    common::{CalfErr, Pos},
     lexer::{Lexeme, Lexer, Token, TokenKind},
-    CalfErr, Pos,
 };
 use alloc::{boxed::Box, collections::VecDeque, string::String, vec::Vec};
 use core::{fmt::Debug, str::FromStr};
@@ -32,7 +32,7 @@ pub enum Syntagma<T> {
         func: String,
         args: Vec<Expr<T>>,
     },
-    Func {
+    Lambda {
         params: Vec<String>,
         body: Box<Expr<T>>,
     },
@@ -112,6 +112,8 @@ where
         self.term()
     }
 
+    //TODO: multiplications, comparators, ternary, function calls, lambdas, list literals
+
     fn term(&mut self) -> Result<Expr<T>, CalfErr> {
         let mut expr = self.primary()?;
         while self.is_token(TokenKind::Plus, 0) || self.is_token(TokenKind::Minus, 0) {
@@ -182,9 +184,10 @@ where
             );
             return Ok(expr);
         }
+        // If we are here there is something badly formed
         Err(CalfErr {
             message: "Couldn't parse a valid expression".into(),
-            pos: self.tokens[0].pos.clone(),
+            pos: self.lexer.pos(),
         })
     }
 

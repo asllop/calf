@@ -1,7 +1,9 @@
+use crate::{
+    common::CalfErr,
+    parser::{Parser, Stmt},
+};
 use alloc::vec::Vec;
 use core::{fmt::Debug, str::FromStr};
-use crate::parser::{Parser, Stmt};
-use crate::CalfErr;
 
 #[derive(Debug)]
 /// Abstract Syntax Tree.
