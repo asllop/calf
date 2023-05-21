@@ -13,6 +13,6 @@ pub mod parser;
 mod ast;
 pub use ast::*;
 
-// Resport common types
+// Reexport common types.
 mod common;
 pub use common::*;

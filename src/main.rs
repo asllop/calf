@@ -34,6 +34,7 @@ const _CODE_3: &str = r#"
         x = 10   y = (var + num) - 7
         20 + num - 8
         4.87
+        num / 4 + 10 * (!!var - 2) % 3 == -num + 9 != 8 * num > !19
     "#;
 
 fn main() {

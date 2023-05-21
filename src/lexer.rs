@@ -3,6 +3,8 @@ use alloc::string::String;
 use core::{fmt::Debug, str::FromStr};
 use logos::Logos;
 
+//TODO: Add tokens: NaN, +Inf, -Inf
+
 #[derive(Logos, Debug, PartialEq, Copy, Clone)]
 #[logos(skip r"[ \t]+")]
 /// Token types.
@@ -20,6 +22,14 @@ pub enum TokenKind {
     OpenParenth,
     #[token(")")]
     ClosingParenth,
+    #[token("[")]
+    OpenClause,
+    #[token("]")]
+    ClosingClause,
+    #[token("{")]
+    OpenCurly,
+    #[token("}")]
+    ClosingCurly,
     #[token(",")]
     Comma,
     #[token("?")]
@@ -62,12 +72,10 @@ pub enum TokenKind {
     NotEqual,
     #[token("=")]
     Assign,
+    #[token(".")]
+    Dot,
     #[token("..")]
-    Dots,
-    #[token("[")]
-    OpenClause,
-    #[token("]")]
-    ClosingClause,
+    TwoDots,
     #[token("#")]
     Sharp,
 
