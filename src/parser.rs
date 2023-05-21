@@ -114,27 +114,29 @@ where
         self.equality()
     }
 
+    // //TODO: parse ternay operator
+    // fn ternay(&mut self) -> Result<Expr<T>, CalfErr> {
+    //     let mut expr = self.equality()?;
+    //     while self.is_token(TokenKind::Question, 0)? {
+    //         let then_op = self.token().unwrap();
+    //     }
+    //     todo!()
+    // }
+
     fn equality(&mut self) -> Result<Expr<T>, CalfErr> {
         let mut expr = self.comparison()?;
         while self.is_token(TokenKind::TwoEquals, 0)? || self.is_token(TokenKind::NotEqual, 0)? {
-            let op = self.token().unwrap();
-            if let Lexeme::Particle(op) = op.lexeme {
-                let right = self.comparison()?;
-                let pos = expr.pos.clone();
-                expr = Expr::new(
-                    Syntagma::BinaryOp {
-                        op,
-                        left_child: Box::new(expr),
-                        right_child: Box::new(right),
-                    },
-                    pos,
-                )
-            } else {
-                return Err(CalfErr {
-                    message: "Expected a particle to parse equality".into(),
-                    pos: op.pos,
-                });
-            }
+            let op = self.token().unwrap().particle()?;
+            let right = self.comparison()?;
+            let pos = expr.pos.clone();
+            expr = Expr::new(
+                Syntagma::BinaryOp {
+                    op,
+                    left_child: Box::new(expr),
+                    right_child: Box::new(right),
+                },
+                pos,
+            )
         }
         Ok(expr)
     }
@@ -148,24 +150,17 @@ where
             || self.is_token(TokenKind::TwoAnds, 0)?
             || self.is_token(TokenKind::TwoOrs, 0)?
         {
-            let op = self.token().unwrap();
-            if let Lexeme::Particle(op) = op.lexeme {
-                let right = self.logic()?;
-                let pos = expr.pos.clone();
-                expr = Expr::new(
-                    Syntagma::BinaryOp {
-                        op,
-                        left_child: Box::new(expr),
-                        right_child: Box::new(right),
-                    },
-                    pos,
-                )
-            } else {
-                return Err(CalfErr {
-                    message: "Expected a particle to parse comparison".into(),
-                    pos: op.pos,
-                });
-            }
+            let op = self.token().unwrap().particle()?;
+            let right = self.logic()?;
+            let pos = expr.pos.clone();
+            expr = Expr::new(
+                Syntagma::BinaryOp {
+                    op,
+                    left_child: Box::new(expr),
+                    right_child: Box::new(right),
+                },
+                pos,
+            )
         }
         Ok(expr)
     }
@@ -173,24 +168,17 @@ where
     fn logic(&mut self) -> Result<Expr<T>, CalfErr> {
         let mut expr = self.term()?;
         while self.is_token(TokenKind::And, 0)? || self.is_token(TokenKind::Or, 0)? {
-            let op = self.token().unwrap();
-            if let Lexeme::Particle(op) = op.lexeme {
-                let right = self.term()?;
-                let pos = expr.pos.clone();
-                expr = Expr::new(
-                    Syntagma::BinaryOp {
-                        op,
-                        left_child: Box::new(expr),
-                        right_child: Box::new(right),
-                    },
-                    pos,
-                )
-            } else {
-                return Err(CalfErr {
-                    message: "Expected a particle to parse logic".into(),
-                    pos: op.pos,
-                });
-            }
+            let op = self.token().unwrap().particle()?;
+            let right = self.term()?;
+            let pos = expr.pos.clone();
+            expr = Expr::new(
+                Syntagma::BinaryOp {
+                    op,
+                    left_child: Box::new(expr),
+                    right_child: Box::new(right),
+                },
+                pos,
+            )
         }
         Ok(expr)
     }
@@ -198,24 +186,17 @@ where
     fn term(&mut self) -> Result<Expr<T>, CalfErr> {
         let mut expr = self.factor()?;
         while self.is_token(TokenKind::Plus, 0)? || self.is_token(TokenKind::Minus, 0)? {
-            let op = self.token().unwrap();
-            if let Lexeme::Particle(op) = op.lexeme {
-                let right = self.factor()?;
-                let pos = expr.pos.clone();
-                expr = Expr::new(
-                    Syntagma::BinaryOp {
-                        op,
-                        left_child: Box::new(expr),
-                        right_child: Box::new(right),
-                    },
-                    pos,
-                )
-            } else {
-                return Err(CalfErr {
-                    message: "Expected a particle to parse term".into(),
-                    pos: op.pos,
-                });
-            }
+            let op = self.token().unwrap().particle()?;
+            let right = self.factor()?;
+            let pos = expr.pos.clone();
+            expr = Expr::new(
+                Syntagma::BinaryOp {
+                    op,
+                    left_child: Box::new(expr),
+                    right_child: Box::new(right),
+                },
+                pos,
+            )
         }
         Ok(expr)
     }
@@ -226,55 +207,44 @@ where
             || self.is_token(TokenKind::Slash, 0)?
             || self.is_token(TokenKind::Percent, 0)?
         {
-            let op = self.token().unwrap();
-            if let Lexeme::Particle(op) = op.lexeme {
-                let right = self.unary()?;
-                let pos = expr.pos.clone();
-                expr = Expr::new(
-                    Syntagma::BinaryOp {
-                        op,
-                        left_child: Box::new(expr),
-                        right_child: Box::new(right),
-                    },
-                    pos,
-                )
-            } else {
-                return Err(CalfErr {
-                    message: "Expected a particle to parse comparison".into(),
-                    pos: op.pos,
-                });
-            }
+            let op = self.token().unwrap().particle()?;
+            let right = self.unary()?;
+            let pos = expr.pos.clone();
+            expr = Expr::new(
+                Syntagma::BinaryOp {
+                    op,
+                    left_child: Box::new(expr),
+                    right_child: Box::new(right),
+                },
+                pos,
+            )
         }
         Ok(expr)
     }
 
     fn unary(&mut self) -> Result<Expr<T>, CalfErr> {
         if self.is_token(TokenKind::Not, 0)? || self.is_token(TokenKind::Minus, 0)? {
-            let op = self.token().unwrap();
-            if let Lexeme::Particle(op) = op.lexeme {
-                let right = self.unary()?;
-                let pos = right.pos.clone();
-                return Ok(Expr::new(
-                    Syntagma::UnaryOp {
-                        op,
-                        child: Box::new(right),
-                    },
-                    pos,
-                ));
-            } else {
-                return Err(CalfErr {
-                    message: "Expected a particle to parse unary".into(),
-                    pos: op.pos,
-                });
-            }
+            let op = self.token().unwrap().particle()?;
+            let right = self.unary()?;
+            let pos = right.pos.clone();
+            return Ok(Expr::new(
+                Syntagma::UnaryOp {
+                    op,
+                    child: Box::new(right),
+                },
+                pos,
+            ));
         }
         self.primary()
     }
 
+    //TODO: parse lambdas
     //TODO: parse "#" and "." operators
+    //TODO: parse function calls
+    //TODO: parse indexations
 
     fn primary(&mut self) -> Result<Expr<T>, CalfErr> {
-        //TODO: parse list literals
+        //TODO: parse list literals array and range
         if self.is_token(TokenKind::Int, 0)? || self.is_token(TokenKind::Float, 0)? {
             let token = self.token().unwrap();
             if let Lexeme::Number(n) = token.lexeme {

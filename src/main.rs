@@ -1,18 +1,13 @@
 use calf;
 
 // All parts of syntax
-const _CODE_1: &str = r#" // CALF example
-    f_acc = |n,acc| n > 1 ? f_acc(n - 1, n * acc) : acc
-    fact = |n| f_acc(n, 1)
+const _CODE_1: &str = r#"
+    num =
+        x >= 0 && y >= 0
+        ? x * y
+        : 0
     
-    fact(6) // this is a comment ^ * / &%
-    
-    filter([1,2,3,4], |x| x % 2 == 0)
-    2 * 6 / (4 + 10)
-
-    nums = [1,2,3,4,5]
-    nums = nums * [0;5;2]
-    nums = nums[0..1] # 3 # [5,8]
+    num + 7 * 9
 "#;
 
 // Expression statements

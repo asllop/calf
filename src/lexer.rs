@@ -110,6 +110,17 @@ impl<T> Token<T> {
     pub fn new(lexeme: Lexeme<T>, pos: Pos) -> Self {
         Self { lexeme, pos }
     }
+
+    pub fn particle(&self) -> Result<TokenKind, CalfErr> {
+        if let Lexeme::Particle(t) = self.lexeme {
+            Ok(t)
+        } else {
+            Err(CalfErr {
+                message: "Expected a particle".into(),
+                pos: self.pos.clone(),
+            })
+        }
+    }
 }
 
 pub struct Lexer {
