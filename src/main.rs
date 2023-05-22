@@ -2,12 +2,15 @@ use calf;
 
 // All parts of syntax
 const _CODE_1: &str = r#"
-    num =
-        x >= 0 && y >= 0
-        ? x * y
+    num = x >= 0 && y >= 0 ?
+        x * y
         : 0
     
-    num + 7 * 9
+    x >= 0 ?
+        y >= 0 ?
+            x * y
+            : 0
+        : 0
 "#;
 
 // Expression statements
@@ -35,9 +38,10 @@ const _CODE_3: &str = r#"
 fn main() {
     println!("---- CALF ----\n");
 
-    let code = _CODE_3;
+    let code = _CODE_1;
     let ast = calf::Ast::<f32>::build(code).expect("Error generating AST");
     for stmt in ast.statements {
-        println!("{:?}\n", stmt);
+        println!("{:#?}\n", stmt);
+        println!("------------------------------------\n");
     }
 }

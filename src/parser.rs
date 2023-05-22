@@ -93,7 +93,7 @@ where
 
     fn assign_statement(&mut self) -> Result<Stmt<T>, CalfErr> {
         let ident = self.token().unwrap();
-        self.token(); // Consume "="
+        self.token().unwrap(); // Consume "="
         let value = self.expression()?;
         if let Lexeme::Ident(name) = ident.lexeme {
             Ok(Stmt::Assign { name, value })
@@ -111,17 +111,63 @@ where
     }
 
     fn expression(&mut self) -> Result<Expr<T>, CalfErr> {
-        self.equality()
+        self.ternay()
     }
 
-    // //TODO: parse ternay operator
-    // fn ternay(&mut self) -> Result<Expr<T>, CalfErr> {
-    //     let mut expr = self.equality()?;
-    //     while self.is_token(TokenKind::Question, 0)? {
-    //         let then_op = self.token().unwrap();
-    //     }
-    //     todo!()
-    // }
+    // Parsing a ternay operator:
+    //      cond_expr ? then_expr : else_expr
+    // Is equivalent to parsing two nested binary expressions:
+    //      cond_expr ? (then_expr : else_expr)
+    fn ternay(&mut self) -> Result<Expr<T>, CalfErr> {
+        let mut cond_expr = self.equality()?;
+        if self.is_token(TokenKind::Question, 0)? {
+            self.token().unwrap().particle()?;
+            // Parse colon part of the expression
+            let right_expr = |_self: &mut Self| -> Result<Expr<T>, CalfErr> {
+                let mut then_expr = _self.ternay()?;
+                if _self.is_token(TokenKind::Colon, 0)? {
+                    let colon_op = _self.token().unwrap().particle()?;
+                    let else_expr = _self.ternay()?;
+                    let then_pos = then_expr.pos.clone();
+                    then_expr = Expr::new(
+                        Syntagma::BinaryOp {
+                            op: colon_op,
+                            left_child: Box::new(then_expr),
+                            right_child: Box::new(else_expr),
+                        },
+                        then_pos,
+                    )
+                }
+                else {
+                    return Err(CalfErr {
+                        message: "Expected a colon operator".into(),
+                        pos: then_expr.pos,
+                    });
+                }
+                Ok(then_expr)
+            }(self)?;
+
+            let pos_cond = cond_expr.pos.clone();
+
+            if let Syntagma::BinaryOp { op: TokenKind::Colon, left_child, right_child } = right_expr.syn {
+                cond_expr = Expr::new(
+                    Syntagma::TernaryOp {
+                        left_child: Box::new(cond_expr),
+                        mid_child: left_child,
+                        right_child,
+                    },
+                    pos_cond,
+                )
+            }
+            else {
+                return Err(CalfErr {
+                    message: "Ternary operator '?' expects a colon operator".into(),
+                    pos: pos_cond,
+                });
+            }
+        }
+        Ok(cond_expr)
+    }
 
     fn equality(&mut self) -> Result<Expr<T>, CalfErr> {
         let mut expr = self.comparison()?;
@@ -302,11 +348,14 @@ where
         if offset >= self.tokens.len() {
             let missing = offset - self.tokens.len() + 1;
             for _ in 0..missing {
-                let token = self.lexer.scan_token()?;
-                // Skip this lexeme, not a parseable one
-                if let Lexeme::EOF | Lexeme::None = token.lexeme {
-                    continue;
+                let mut token = self.lexer.scan_token()?;
+                // Skip None tokens (newlines and comments)
+                while let Lexeme::None = token.lexeme {
+                    token = self.lexer.scan_token()?;
                 }
+                // End Of File token, end getting tokens
+                if let Lexeme::EOF = token.lexeme { break }
+
                 self.tokens.push_back(token);
             }
         }
