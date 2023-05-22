@@ -11,12 +11,12 @@ pub struct Ast<T> {
     pub statements: Vec<Stmt<T>>,
 }
 
-impl<T> Ast<T>
+impl<'a, T> Ast<T>
 where
     T: FromStr + Debug + PartialEq,
     <T as FromStr>::Err: Debug,
 {
-    pub fn build(code: &'static str) -> Result<Self, CalfErr> {
+    pub fn build(code: &'a str) -> Result<Self, CalfErr> {
         let mut ast = Self {
             statements: Default::default(),
         };

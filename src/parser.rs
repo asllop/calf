@@ -5,14 +5,19 @@ use crate::{
 use alloc::{boxed::Box, collections::VecDeque, string::String, vec::Vec};
 use core::{fmt::Debug, str::FromStr};
 
-//TODO: create an AST struct with a Vec<Expr>, and use indexes to this vec instead of Box<Expr> to reduce allocations.
+//TODO: create a Vec<Expr<T>>, and use indexes to this vec instead of Box<Expr<T>> to reduce allocations.
 
 #[derive(Debug)]
 /// Syntactic unit.
 pub enum Syntagma<T> {
     Number(T),
     Identifier(String),
-    List(Vec<T>),
+    Vector(Vec<T>),
+    Range {
+        init: T,
+        len: u64,
+        step: T
+    },
     Group {
         expr: Box<Expr<T>>,
     },
@@ -31,7 +36,7 @@ pub enum Syntagma<T> {
         right_child: Box<Expr<T>>,
     },
     Call {
-        func: String,
+        func: Box<Expr<T>>,
         args: Vec<Expr<T>>,
     },
     Lambda {
@@ -60,17 +65,17 @@ pub enum Stmt<T> {
     Expr(Expr<T>),
 }
 
-pub struct Parser<T> {
+pub struct Parser<'a, T> {
     tokens: VecDeque<Token<T>>,
-    lexer: Lexer,
+    lexer: Lexer<'a>,
 }
 
-impl<T> Parser<T>
+impl<'a, T> Parser<'a, T>
 where
     T: FromStr + Debug + PartialEq,
     <T as FromStr>::Err: Debug,
 {
-    pub fn new(code: &'static str) -> Self {
+    pub fn new(code: &'a str) -> Self {
         Self {
             tokens: Default::default(),
             lexer: Lexer::new(code),

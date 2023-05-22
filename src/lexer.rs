@@ -123,13 +123,13 @@ impl<T> Token<T> {
     }
 }
 
-pub struct Lexer {
-    current_code: &'static str,
+pub struct Lexer<'a> {
+    current_code: &'a str,
     last_pos: Pos,
 }
 
-impl Lexer {
-    pub fn new(code: &'static str) -> Self {
+impl<'a> Lexer<'a> {
+    pub fn new(code: &'a str) -> Self {
         Self {
             current_code: code,
             last_pos: Pos::new(0, 0),
