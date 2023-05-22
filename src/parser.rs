@@ -16,7 +16,7 @@ pub enum Syntagma<T> {
     Range {
         init: T,
         len: u64,
-        step: T
+        step: T,
     },
     Group {
         expr: Box<Expr<T>>,
@@ -119,7 +119,7 @@ where
         self.ternay()
     }
 
-    // Parsing a ternay operator:
+    // Parsing a ternay expression:
     //      cond_expr ? then_expr : else_expr
     // Is equivalent to parsing two nested binary expressions:
     //      cond_expr ? (then_expr : else_expr)
@@ -142,8 +142,7 @@ where
                         },
                         then_pos,
                     )
-                }
-                else {
+                } else {
                     return Err(CalfErr {
                         message: "Expected a colon operator".into(),
                         pos: then_expr.pos,
@@ -154,7 +153,12 @@ where
 
             let pos_cond = cond_expr.pos.clone();
 
-            if let Syntagma::BinaryOp { op: TokenKind::Colon, left_child, right_child } = right_expr.syn {
+            if let Syntagma::BinaryOp {
+                op: TokenKind::Colon,
+                left_child,
+                right_child,
+            } = right_expr.syn
+            {
                 cond_expr = Expr::new(
                     Syntagma::TernaryOp {
                         left_child: Box::new(cond_expr),
@@ -163,8 +167,7 @@ where
                     },
                     pos_cond,
                 )
-            }
-            else {
+            } else {
                 return Err(CalfErr {
                     message: "Ternary operator '?' expects a colon operator".into(),
                     pos: pos_cond,
@@ -340,7 +343,7 @@ where
             );
             return Ok(expr);
         }
-        //TODO: check the next token and see if we can provide a more specific err msg
+        //TODO: check the next token and see if we can provide a more specific error message
         // If we are here there is something badly formed
         Err(CalfErr {
             message: "Couldn't parse a valid expression".into(),
@@ -359,7 +362,9 @@ where
                     token = self.lexer.scan_token()?;
                 }
                 // End Of File token, end getting tokens
-                if let Lexeme::EOF = token.lexeme { break }
+                if let Lexeme::EOF = token.lexeme {
+                    break;
+                }
 
                 self.tokens.push_back(token);
             }

@@ -3,7 +3,7 @@ use alloc::string::String;
 use core::{fmt::Debug, str::FromStr};
 use logos::Logos;
 
-//TODO: Add tokens: NaN, +Inf, -Inf
+//TODO: Add tokens: NAN, +INF, -INF
 
 #[derive(Logos, Debug, PartialEq, Copy, Clone)]
 #[logos(skip r"[ \t]+")]
