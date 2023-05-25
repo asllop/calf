@@ -3,16 +3,11 @@
 #[macro_use]
 extern crate alloc;
 
-/// Lexic analyzer.
-pub mod lexer;
-
-/// Syntax analyzer.
-pub mod parser;
+mod common;
+mod lexer;
+mod parser;
+mod semantic;
 
 // Reexport AST module.
 mod ast;
 pub use ast::*;
-
-// Reexport common types.
-mod common;
-pub use common::*;
