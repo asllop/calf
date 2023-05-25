@@ -97,7 +97,13 @@ where
     }
 
     fn assign_statement(&mut self) -> Result<Stmt<T>, CalfErr> {
-        let (name, _) = self.token().into_ident()?;
+        let (name, pos) = self.token().into_ident()?;
+        if name == "fn" {
+            return Err(CalfErr {
+                message: "'fn' is a reserved word".into(),
+                pos,
+            });
+        }
         self.token().into_particle()?; // Consume "="
         let value = self.expression()?;
         Ok(Stmt::Assign { name, value })
@@ -422,6 +428,12 @@ where
         }
         if self.is_token(TokenKind::Ident, 0)? {
             let (id, pos) = self.token().into_ident()?;
+            if id == "fn" {
+                return Err(CalfErr {
+                    message: "'fn' is a reserved word".into(),
+                    pos,
+                });
+            }
             let expr = Expr::new(Syntagma::Identifier(id), pos);
             return Ok(expr);
         }
