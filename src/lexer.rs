@@ -110,46 +110,62 @@ impl<T> Token<T> {
     pub fn new(lexeme: Lexeme<T>, pos: Pos) -> Self {
         Self { lexeme, pos }
     }
+}
 
-    pub fn into_parts(self) -> (Pos, Lexeme<T>) {
-        (self.pos, self.lexeme)
+impl<T> FromToken<T> for Option<Token<T>> {
+    fn into_parts(self) -> Result<(Lexeme<T>, Pos), CalfErr> {
+        if let Some(token) = self {
+            Ok((token.lexeme, token.pos))
+        } else {
+            Err(CalfErr {
+                message: "Token is None".into(),
+                pos: Pos::default(),
+            })
+        }
     }
 
-    pub fn into_particle(self) -> Result<(TokenKind, Pos), CalfErr> {
-        let (pos, lexeme) = self.into_parts();
+    fn into_particle(self) -> Result<(TokenKind, Pos), CalfErr> {
+        let (lexeme, pos) = self.into_parts()?;
         if let Lexeme::Particle(t) = lexeme {
             Ok((t, pos))
         } else {
             Err(CalfErr {
                 message: "Expected a particle".into(),
-                pos,
+                pos: Pos::default(),
             })
         }
     }
 
-    pub fn into_ident(self) -> Result<(String, Pos), CalfErr> {
-        let (pos, lexeme) = self.into_parts();
+    fn into_ident(self) -> Result<(String, Pos), CalfErr> {
+        let (lexeme, pos) = self.into_parts()?;
         if let Lexeme::Ident(s) = lexeme {
             Ok((s, pos))
         } else {
             Err(CalfErr {
                 message: "Expected an identifier".into(),
-                pos,
+                pos: Pos::default(),
             })
         }
     }
 
-    pub fn into_number(self) -> Result<(T, Pos), CalfErr> {
-        let (pos, lexeme) = self.into_parts();
+    fn into_number(self) -> Result<(T, Pos), CalfErr> {
+        let (lexeme, pos) = self.into_parts()?;
         if let Lexeme::Number(n) = lexeme {
             Ok((n, pos))
         } else {
             Err(CalfErr {
-                message: "Expected an identifier".into(),
-                pos,
+                message: "Expected a number".into(),
+                pos: Pos::default(),
             })
         }
     }
+}
+
+pub trait FromToken<T> {
+    fn into_parts(self) -> Result<(Lexeme<T>, Pos), CalfErr>;
+    fn into_particle(self) -> Result<(TokenKind, Pos), CalfErr>;
+    fn into_ident(self) -> Result<(String, Pos), CalfErr>;
+    fn into_number(self) -> Result<(T, Pos), CalfErr>;
 }
 
 pub struct Lexer<'a> {
