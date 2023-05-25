@@ -97,17 +97,10 @@ where
     }
 
     fn assign_statement(&mut self) -> Result<Stmt<T>, CalfErr> {
-        let ident = self.token().unwrap();
-        self.token().unwrap(); // Consume "="
+        let (name, _) = self.token().into_ident()?;
+        self.token().into_particle()?; // Consume "="
         let value = self.expression()?;
-        if let Lexeme::Ident(name) = ident.lexeme {
-            Ok(Stmt::Assign { name, value })
-        } else {
-            Err(CalfErr {
-                message: "Invalid identifier for var definition".into(),
-                pos: ident.pos,
-            })
-        }
+        Ok(Stmt::Assign { name, value })
     }
 
     fn expression_statement(&mut self) -> Result<Stmt<T>, CalfErr> {
@@ -423,36 +416,22 @@ where
     fn primary(&mut self) -> Result<Expr<T>, CalfErr> {
         //TODO: parse list literals array and range
         if self.is_token(TokenKind::Int, 0)? || self.is_token(TokenKind::Float, 0)? {
-            let token = self.token().unwrap();
-            if let Lexeme::Number(n) = token.lexeme {
-                let expr = Expr::new(Syntagma::Number(n), token.pos);
-                return Ok(expr);
-            } else {
-                return Err(CalfErr {
-                    message: "Expected a number".into(),
-                    pos: token.pos,
-                });
-            }
+            let (n, pos) = self.token().into_number()?;
+            let expr = Expr::new(Syntagma::Number(n), pos);
+            return Ok(expr);
         }
         if self.is_token(TokenKind::Ident, 0)? {
-            let token = self.token().unwrap();
-            if let Lexeme::Ident(id) = token.lexeme {
-                let expr = Expr::new(Syntagma::Identifier(id), token.pos);
-                return Ok(expr);
-            } else {
-                return Err(CalfErr {
-                    message: "Expected an identifier".into(),
-                    pos: token.pos,
-                });
-            }
+            let (id, pos) = self.token().into_ident()?;
+            let expr = Expr::new(Syntagma::Identifier(id), pos);
+            return Ok(expr);
         }
         if self.is_token(TokenKind::OpenParenth, 0)? {
-            self.token(); // consume "("
+            self.token().into_particle()?; // consume "("
             let expr = self.expression()?;
             if self.is_token(TokenKind::ClosingParenth, 0)? {
-                self.token(); // consume ")"
+                self.token().into_particle()?; // consume ")"
             } else {
-                let pos = self.token().unwrap().pos;
+                let (_, pos) = self.token().into_parts()?;
                 return Err(CalfErr {
                     message: "Expected a closing parenthesis after expression".into(),
                     pos,
