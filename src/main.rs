@@ -45,6 +45,12 @@ const _CODE_1: &str = r#"
         a + 2,
         fn(x) x * 10
     }
+
+    arr#10 + 2
+    arr#i + 2
+    arr#(x + y*10)
+
+    foo{10}#index
 "#;
 
 fn main() {

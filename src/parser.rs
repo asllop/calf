@@ -289,14 +289,30 @@ where
                 pos,
             ));
         }
-        self.call()
+        self.indexation()
     }
 
     //TODO: parse "." operator
+    //TODO: parse set and slice indexations
 
-    //TODO: parse indexations: set and slice
-
-    //TODO: parse "#" operator
+    // "#" operator
+    fn indexation(&mut self) -> Result<Expr<T>, CalfErr> {
+        let mut expr = self.call()?;
+        while self.is_token(TokenKind::Sharp, 0)? {
+            let (op, _) = self.token().into_particle()?;
+            let right = self.call()?;
+            let pos = expr.pos.clone();
+            expr = Expr::new(
+                Syntagma::BinaryOp {
+                    op,
+                    left_child: Box::new(expr),
+                    right_child: Box::new(right),
+                },
+                pos,
+            )
+        }
+        Ok(expr)
+    }
 
     fn call(&mut self) -> Result<Expr<T>, CalfErr> {
         if self.is_token(TokenKind::Ident, 0)? && self.is_token(TokenKind::OpenCurly, 1)? {
