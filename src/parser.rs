@@ -1,6 +1,6 @@
 use crate::{
     common::{CalfErr, Pos},
-    lexer::{Lexeme, Lexer, Token, FromToken, TokenKind},
+    lexer::{FromToken, Lexeme, Lexer, Token, TokenKind},
 };
 use alloc::{boxed::Box, collections::VecDeque, string::String, vec::Vec};
 use core::{fmt::Debug, str::FromStr};
@@ -292,9 +292,11 @@ where
         self.call()
     }
 
-    //TODO: parse lambdas
-    //TODO: parse "#" and "." operators
-    //TODO: parse indexations
+    //TODO: parse "." operator
+
+    //TODO: parse indexations: set and slice
+
+    //TODO: parse "#" operator
 
     fn call(&mut self) -> Result<Expr<T>, CalfErr> {
         if self.is_token(TokenKind::Ident, 0)? && self.is_token(TokenKind::OpenCurly, 1)? {
@@ -338,14 +340,66 @@ where
                 }
             }
 
-            if args.len() == 0 {
-                return Err(CalfErr {
-                    message: "Function calls requiere at least one argument".into(),
-                    pos,
-                });
+            return Ok(Expr::new(Syntagma::Call { func, args }, pos));
+        }
+        self.lambda()
+    }
+
+    fn lambda(&mut self) -> Result<Expr<T>, CalfErr> {
+        if self.is_ident("fn", 0)? && self.is_token(TokenKind::OpenParenth, 1)? {
+            let (_, pos) = self.token().into_ident()?; // consume "fn"
+            self.token().into_particle()?; // consume "("
+
+            let mut params = vec![];
+            let mut expect_comma = false;
+            let mut expect_param = true;
+
+            loop {
+                if self.is_token(TokenKind::ClosingParenth, 0)? {
+                    self.token().into_particle()?; // consume ")"
+                    break;
+                }
+
+                if expect_comma {
+                    if self.is_token(TokenKind::Comma, 0)? {
+                        self.token().into_particle()?; // consume ","
+                        expect_param = true;
+                        expect_comma = false;
+                        continue;
+                    } else {
+                        let (_, pos) = self.token().into_parts()?;
+                        return Err(CalfErr {
+                            message: "Expecting a comma".into(),
+                            pos,
+                        });
+                    }
+                } else if self.is_token(TokenKind::Comma, 0)? {
+                    let (_, pos) = self.token().into_parts()?;
+                    return Err(CalfErr {
+                        message: "Not expecting a comma".into(),
+                        pos,
+                    });
+                }
+
+                if expect_param {
+                    if self.is_token(TokenKind::Ident, 0)? {
+                        let (param, _) = self.token().into_ident()?;
+                        params.push(param);
+                        expect_param = false;
+                        expect_comma = true;
+                    } else {
+                        let (_, pos) = self.token().into_parts()?;
+                        return Err(CalfErr {
+                            message: "Expecting a parameter".into(),
+                            pos,
+                        });
+                    }
+                }
             }
 
-            return Ok(Expr::new(Syntagma::Call { func, args }, pos));
+            let body = Box::new(self.expression()?);
+
+            return Ok(Expr::new(Syntagma::Lambda { params, body }, pos));
         }
         self.primary()
     }
@@ -398,7 +452,7 @@ where
             return Ok(expr);
         }
         //TODO: check the next token and see if we can provide a more specific error message
-        // If we are here there is something badly formed
+        // If we are here, something is badly formed
         Err(CalfErr {
             message: "Couldn't parse a valid expression".into(),
             pos: self.lexer.pos(),
@@ -434,6 +488,15 @@ where
         } else {
             Ok(false)
         }
+    }
+
+    fn is_ident(&mut self, ident: &str, offset: usize) -> Result<bool, CalfErr> {
+        if self.is_token(TokenKind::Ident, offset)? {
+            if let Lexeme::Ident(lexeme_ident) = &self.tokens[offset].lexeme {
+                return Ok(ident == lexeme_ident);
+            }
+        }
+        Ok(false)
     }
 
     fn token(&mut self) -> Option<Token<T>> {

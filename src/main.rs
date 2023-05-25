@@ -34,9 +34,16 @@ const _CODE_1: &str = r#"
             : 0
         : 0
 
+    foo = fn(x,y) x * y + 2
+
     foo{
         (x + 10) / y,
         bar{x + y}
+    }
+
+    bar{
+        a + 2,
+        fn(x) x * 10
     }
 "#;
 
