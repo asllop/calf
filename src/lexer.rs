@@ -111,13 +111,42 @@ impl<T> Token<T> {
         Self { lexeme, pos }
     }
 
-    pub fn particle(&self) -> Result<TokenKind, CalfErr> {
-        if let Lexeme::Particle(t) = self.lexeme {
-            Ok(t)
+    pub fn into_parts(self) -> (Pos, Lexeme<T>) {
+        (self.pos, self.lexeme)
+    }
+
+    pub fn into_particle(self) -> Result<(TokenKind, Pos), CalfErr> {
+        let (pos, lexeme) = self.into_parts();
+        if let Lexeme::Particle(t) = lexeme {
+            Ok((t, pos))
         } else {
             Err(CalfErr {
                 message: "Expected a particle".into(),
-                pos: self.pos.clone(),
+                pos,
+            })
+        }
+    }
+
+    pub fn into_ident(self) -> Result<(String, Pos), CalfErr> {
+        let (pos, lexeme) = self.into_parts();
+        if let Lexeme::Ident(s) = lexeme {
+            Ok((s, pos))
+        } else {
+            Err(CalfErr {
+                message: "Expected an identifier".into(),
+                pos,
+            })
+        }
+    }
+
+    pub fn into_number(self) -> Result<(T, Pos), CalfErr> {
+        let (pos, lexeme) = self.into_parts();
+        if let Lexeme::Number(n) = lexeme {
+            Ok((n, pos))
+        } else {
+            Err(CalfErr {
+                message: "Expected an identifier".into(),
+                pos,
             })
         }
     }

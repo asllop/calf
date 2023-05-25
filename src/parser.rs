@@ -36,7 +36,7 @@ pub enum Syntagma<T> {
         right_child: Box<Expr<T>>,
     },
     Call {
-        func: Box<Expr<T>>,
+        func: String,
         args: Vec<Expr<T>>,
     },
     Lambda {
@@ -126,12 +126,12 @@ where
     fn ternay(&mut self) -> Result<Expr<T>, CalfErr> {
         let mut cond_expr = self.equality()?;
         if self.is_token(TokenKind::Question, 0)? {
-            self.token().unwrap().particle()?;
+            self.token().unwrap().into_particle()?;
             // Parse colon part of the expression
             let right_expr = |_self: &mut Self| -> Result<Expr<T>, CalfErr> {
                 let mut then_expr = _self.ternay()?;
                 if _self.is_token(TokenKind::Colon, 0)? {
-                    let colon_op = _self.token().unwrap().particle()?;
+                    let (colon_op, _) = _self.token().unwrap().into_particle()?;
                     let else_expr = _self.ternay()?;
                     let then_pos = then_expr.pos.clone();
                     then_expr = Expr::new(
@@ -180,7 +180,7 @@ where
     fn equality(&mut self) -> Result<Expr<T>, CalfErr> {
         let mut expr = self.comparison()?;
         while self.is_token(TokenKind::TwoEquals, 0)? || self.is_token(TokenKind::NotEqual, 0)? {
-            let op = self.token().unwrap().particle()?;
+            let (op, _) = self.token().unwrap().into_particle()?;
             let right = self.comparison()?;
             let pos = expr.pos.clone();
             expr = Expr::new(
@@ -204,7 +204,7 @@ where
             || self.is_token(TokenKind::TwoAnds, 0)?
             || self.is_token(TokenKind::TwoOrs, 0)?
         {
-            let op = self.token().unwrap().particle()?;
+            let (op, _) = self.token().unwrap().into_particle()?;
             let right = self.logic()?;
             let pos = expr.pos.clone();
             expr = Expr::new(
@@ -222,7 +222,7 @@ where
     fn logic(&mut self) -> Result<Expr<T>, CalfErr> {
         let mut expr = self.term()?;
         while self.is_token(TokenKind::And, 0)? || self.is_token(TokenKind::Or, 0)? {
-            let op = self.token().unwrap().particle()?;
+            let (op, _) = self.token().unwrap().into_particle()?;
             let right = self.term()?;
             let pos = expr.pos.clone();
             expr = Expr::new(
@@ -240,7 +240,7 @@ where
     fn term(&mut self) -> Result<Expr<T>, CalfErr> {
         let mut expr = self.factor()?;
         while self.is_token(TokenKind::Plus, 0)? || self.is_token(TokenKind::Minus, 0)? {
-            let op = self.token().unwrap().particle()?;
+            let (op, _) = self.token().unwrap().into_particle()?;
             let right = self.factor()?;
             let pos = expr.pos.clone();
             expr = Expr::new(
@@ -261,7 +261,7 @@ where
             || self.is_token(TokenKind::Slash, 0)?
             || self.is_token(TokenKind::Percent, 0)?
         {
-            let op = self.token().unwrap().particle()?;
+            let (op, _) = self.token().unwrap().into_particle()?;
             let right = self.unary()?;
             let pos = expr.pos.clone();
             expr = Expr::new(
@@ -278,7 +278,7 @@ where
 
     fn unary(&mut self) -> Result<Expr<T>, CalfErr> {
         if self.is_token(TokenKind::Not, 0)? || self.is_token(TokenKind::Minus, 0)? {
-            let op = self.token().unwrap().particle()?;
+            let (op, _) = self.token().unwrap().into_particle()?;
             let right = self.unary()?;
             let pos = right.pos.clone();
             return Ok(Expr::new(
@@ -289,13 +289,66 @@ where
                 pos,
             ));
         }
-        self.primary()
+        self.call()
     }
 
     //TODO: parse lambdas
     //TODO: parse "#" and "." operators
-    //TODO: parse function calls
     //TODO: parse indexations
+
+    fn call(&mut self) -> Result<Expr<T>, CalfErr> {
+        if self.is_token(TokenKind::Ident, 0)? && self.is_token(TokenKind::OpenCurly, 1)? {
+            let (func, pos) = self.token().unwrap().into_ident()?;
+            self.token().unwrap().into_particle()?; // consume "{"
+            let mut args = vec![];
+            let mut expect_comma = false;
+            let mut expect_arg = true;
+            loop {
+                if self.is_token(TokenKind::ClosingCurly, 0)? {
+                    self.token().unwrap().into_particle()?; // consume "}"
+                    break;
+                }
+
+                if expect_comma {
+                    if self.is_token(TokenKind::Comma, 0)? {
+                        self.token().unwrap().into_particle()?; // consume ","
+                        expect_arg = true;
+                        expect_comma = false;
+                        continue;
+                    } else {
+                        let (pos, _) = self.token().unwrap().into_parts();
+                        return Err(CalfErr {
+                            message: "Expecting a comma".into(),
+                            pos,
+                        });
+                    }
+                } else if self.is_token(TokenKind::Comma, 0)? {
+                    let (pos, _) = self.token().unwrap().into_parts();
+                    return Err(CalfErr {
+                        message: "Not expecting a comma".into(),
+                        pos,
+                    });
+                }
+
+                if expect_arg {
+                    let arg = self.expression()?;
+                    args.push(arg);
+                    expect_arg = false;
+                    expect_comma = true;
+                }
+            }
+
+            if args.len() == 0 {
+                return Err(CalfErr {
+                    message: "Function calls requiere at least one argument".into(),
+                    pos,
+                });
+            }
+
+            return Ok(Expr::new(Syntagma::Call { func, args }, pos));
+        }
+        self.primary()
+    }
 
     fn primary(&mut self) -> Result<Expr<T>, CalfErr> {
         //TODO: parse list literals array and range
@@ -329,9 +382,10 @@ where
             if self.is_token(TokenKind::ClosingParenth, 0)? {
                 self.token(); // consume ")"
             } else {
+                let pos = self.token().unwrap().pos;
                 return Err(CalfErr {
                     message: "Expected a closing parenthesis after expression".into(),
-                    pos: expr.pos,
+                    pos,
                 });
             }
             let pos = expr.pos.clone();
