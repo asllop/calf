@@ -1,6 +1,7 @@
 use crate::{
     common::CalfErr,
     parser::{Parser, Stmt},
+    semantic,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, str::FromStr};
@@ -24,10 +25,11 @@ where
         loop {
             let stmt = parser.scan_stmt()?;
             ast.statements.push(stmt);
-            if parser.is_end() {
+            if parser.ended() {
                 break;
             }
         }
+        semantic::check(&ast.statements)?;
         Ok(ast)
     }
 }

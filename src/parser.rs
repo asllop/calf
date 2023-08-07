@@ -12,11 +12,14 @@ use core::{fmt::Debug, str::FromStr};
 pub enum Syntagma<T> {
     Number(T),
     Identifier(String),
-    Vector(Vec<T>),
-    Range {
-        init: T,
+    Vector {
+        values: Vec<Expr<T>>,
         len: u64,
-        step: T,
+    },
+    Range {
+        init: Box<Expr<T>>,
+        len: T,
+        step: Box<Expr<T>>,
     },
     Group {
         expr: Box<Expr<T>>,
@@ -98,9 +101,9 @@ where
 
     fn assign_statement(&mut self) -> Result<Stmt<T>, CalfErr> {
         let (name, pos) = self.token().into_ident()?;
-        if name == "fn" {
+        if name == "f" {
             return Err(CalfErr {
-                message: "'fn' is a reserved word".into(),
+                message: "'f' is a reserved word".into(),
                 pos,
             });
         }
@@ -361,8 +364,8 @@ where
     }
 
     fn lambda(&mut self) -> Result<Expr<T>, CalfErr> {
-        if self.is_ident("fn", 0)? && self.is_token(TokenKind::OpenParenth, 1)? {
-            let (_, pos) = self.token().into_ident()?; // consume "fn"
+        if self.is_ident("f", 0)? && self.is_token(TokenKind::OpenParenth, 1)? {
+            let (_, pos) = self.token().into_ident()?; // consume "f"
             self.token().into_particle()?; // consume "("
 
             let mut params = vec![];
@@ -420,23 +423,25 @@ where
     }
 
     fn primary(&mut self) -> Result<Expr<T>, CalfErr> {
-        //TODO: parse list literals array and range
+        // Number literal
         if self.is_token(TokenKind::Int, 0)? || self.is_token(TokenKind::Float, 0)? {
             let (n, pos) = self.token().into_number()?;
             let expr = Expr::new(Syntagma::Number(n), pos);
             return Ok(expr);
         }
+        // Identifier
         if self.is_token(TokenKind::Ident, 0)? {
             let (id, pos) = self.token().into_ident()?;
-            if id == "fn" {
+            if id == "f" {
                 return Err(CalfErr {
-                    message: "'fn' is a reserved word".into(),
+                    message: "'f' is a reserved word".into(),
                     pos,
                 });
             }
             let expr = Expr::new(Syntagma::Identifier(id), pos);
             return Ok(expr);
         }
+        // Group
         if self.is_token(TokenKind::OpenParenth, 0)? {
             self.token().into_particle()?; // consume "("
             let expr = self.expression()?;
@@ -457,6 +462,31 @@ where
                 pos,
             );
             return Ok(expr);
+        }
+        // List
+        if self.is_token(TokenKind::OpenClause, 0)? {
+            //TODO: parse list literals: array and range
+            // array form: [a,b,c,d,e] --> values can be expressions
+            // range form: [V;S;I] or [V;S] (I = 0) --> V = value (expression), S = size (integer), I = increment (expression)
+            if self.is_token(TokenKind::ClosingClause, 1)? {
+                //TODO: empty list (is this necessary? or the array form can handle it, even if si the last expression)
+            } else if self.is_num(1)?
+                && self.is_token(TokenKind::Semicolon, 2)?
+                && self.is_token(TokenKind::Int, 3)?
+                && self.is_token(TokenKind::Semicolon, 4)?
+                && self.is_num(5)?
+                && self.is_token(TokenKind::ClosingClause, 6)?
+            {
+                //TODO: complete range form: [V;S;I]
+            } else if self.is_num(1)?
+                && self.is_token(TokenKind::Semicolon, 2)?
+                && self.is_token(TokenKind::Int, 3)?
+                && self.is_token(TokenKind::ClosingClause, 4)?
+            {
+                //TODO: short range form: [V;S]
+            } else {
+                //TODO: try to parse the array form
+            }
         }
         //TODO: check the next token and see if we can provide a more specific error message
         // If we are here, something is badly formed
@@ -497,6 +527,10 @@ where
         }
     }
 
+    fn is_num(&mut self, offset: usize) -> Result<bool, CalfErr> {
+        Ok(self.is_token(TokenKind::Int, offset)? || self.is_token(TokenKind::Float, offset)?)
+    }
+
     fn is_ident(&mut self, ident: &str, offset: usize) -> Result<bool, CalfErr> {
         if self.is_token(TokenKind::Ident, offset)? {
             if let Lexeme::Ident(lexeme_ident) = &self.tokens[offset].lexeme {
@@ -510,7 +544,7 @@ where
         self.tokens.pop_front()
     }
 
-    pub fn is_end(&self) -> bool {
+    pub fn ended(&self) -> bool {
         self.tokens.len() == 0
     }
 }
